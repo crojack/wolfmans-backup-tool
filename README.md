@@ -1,10 +1,15 @@
 # Wolfmans Backup Tool
 
-A comprehensive, feature-rich backup and restore solution for Linux systems with a modern GTK3 graphical interface. Built with Perl, this tool provides flexible backup options including system backups, home directory backups, and custom file selection with support for incremental backups, compression, and encryption.
+A simple backup/restore solution for Linux systems written in Perl with a GTK3 graphical interface. This tool provides flexible backup options including system backups, home directory backups, and custom file selection with support for incremental backups, compression, and encryption.
 
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)
 ![Perl](https://img.shields.io/badge/perl-5.x-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+
+<img width="2208" height="1576" alt="Screenshot From 2025-12-23 19-47-06" src="https://github.com/user-attachments/assets/39321a1d-6a13-4e05-9e86-5937f108bbb6" />
+
+<img width="2208" height="1576" alt="Screenshot From 2025-12-23 19-47-21" src="https://github.com/user-attachments/assets/45cdb8dd-e8b3-468d-a1aa-a2789f81a192" />
+
 
 ## Features
 
@@ -28,7 +33,7 @@ A comprehensive, feature-rich backup and restore solution for Linux systems with
   - **Progress Tracking**: Real-time progress with speed and time estimates
 
 ### User Interface
-- Modern GTK3 interface with tabbed navigation
+- GTK3 interface with tabbed navigation
 - Backup and Restore modes with context-aware controls
 - Real-time progress monitoring with elapsed/remaining time
 - Visual feedback with color-coded buttons (suggested-action/destructive-action)
@@ -41,10 +46,6 @@ A comprehensive, feature-rich backup and restore solution for Linux systems with
 - **Metadata Tracking**: JSON-based backup metadata for restore intelligence
 - **Process Management**: Forked child processes for non-blocking operations
 - **Error Handling**: Comprehensive error checking and user-friendly error messages
-
-## Screenshots
-
-*TODO: Add screenshots of the application interface*
 
 ## Requirements
 
@@ -83,68 +84,253 @@ A comprehensive, feature-rich backup and restore solution for Linux systems with
 
 ### Install Dependencies
 
-#### Debian/Ubuntu:
+#### Debian/Ubuntu/Mint:
 ```bash
 sudo apt-get update
-sudo apt-get install perl libgtk3-perl libglib-perl libjson-perl rsync tar gzip gnupg
+sudo apt-get install perl libgtk3-perl libglib-perl libjson-perl \
+                     libfile-copy-recursive-perl libtime-hires-perl \
+                     rsync tar gzip gnupg build-essential cpanminus
 ```
 
 #### Fedora/RHEL:
 ```bash
-sudo dnf install perl perl-Gtk3 perl-Glib perl-JSON rsync tar gzip gnupg2
+sudo dnf install perl perl-Gtk3 perl-Glib perl-JSON \
+                 perl-File-Copy-Recursive perl-Time-HiRes \
+                 rsync tar gzip gnupg2 gcc make cpanminus
 ```
 
 #### Arch Linux:
 ```bash
-sudo pacman -S perl perl-gtk3 perl-json rsync tar gzip gnupg
+sudo pacman -S perl perl-gtk3 perl-json rsync tar gzip gnupg base-devel cpanminus
 ```
 
 ### Install Wolfmans Backup Tool
 
-1. **Clone the repository:**
-   ```bash
+#### Automated Installation (Debian/Ubuntu/Mint Only)
+
+**Note:** The automated installer (`install.sh`) only supports Debian-based distributions. For Fedora, Arch, or other distributions, please use the [manual installation method](#manual-installation-all-distributions) below.
+
+1. **Clone or download the repository:**
+```bash
    git clone https://github.com/crojack/wolfmans-backup-tool.git
    cd wolfmans-backup-tool
-   ```
+```
 
-2. **Make the script executable:**
-   ```bash
-   chmod +x wolfmans-backup-tool.pl
-   ```
-
-3. **Create icons directory (optional):**
-   ```bash
-   mkdir -p ~/.local/share/wolfmans-backup-tool/icons
-   ```
-   
-4. **Add custom icons (optional):**
-   - Place your icon files in `~/.local/share/wolfmans-backup-tool/icons/`
-   - Required icons: `disc.svg`, `drive.png`
-
-5. **Run the application:**
-   ```bash
-   ./wolfmans-backup-tool.pl
-   ```
-
-### Desktop Integration (Optional)
-
-Create a desktop entry for easy access:
-
+2. **Run the installer:**
 ```bash
-cat > ~/.local/share/applications/wolfmans-backup-tool.desktop << 'EOF'
+   chmod +x install.sh
+   ./install.sh
+```
+
+3. **Follow the prompts**
+   
+   The installer will automatically:
+   - Verify your system is Debian-based (Ubuntu/Debian/Mint)
+   - Check for and install all required dependencies via `apt-get`
+   - Verify and install missing Perl modules via `cpanm`
+   - Install application to `~/.local/bin/wolfmans-backup-tool`
+   - Copy icons to `~/.local/share/wolfmans-backup-tool/icons/`
+   - Create config directory at `~/.config/wolfmans-backup-tool/`
+   - Create desktop menu entry for easy access
+   - Verify installation completeness
+
+4. **Add to PATH (if needed):**
+   
+   If `~/.local/bin` is not in your PATH, add this to your `~/.bashrc`:
+```bash
+   export PATH="$HOME/.local/bin:$PATH"
+```
+   
+   Then reload:
+```bash
+   source ~/.bashrc
+```
+
+#### Manual Installation (All Distributions)
+
+**Use this method for Fedora, Arch, OpenSUSE, or other non-Debian distributions.**
+
+1. **Install dependencies** (see distribution-specific commands above)
+
+2. **Clone or download the repository:**
+```bash
+   git clone https://github.com/crojack/wolfmans-backup-tool.git
+   cd wolfmans-backup-tool
+```
+
+3. **Copy the application:**
+```bash
+   mkdir -p ~/.local/bin
+   cp wolfmans-backup-tool.pl ~/.local/bin/wolfmans-backup-tool
+   chmod +x ~/.local/bin/wolfmans-backup-tool
+```
+
+4. **Create directories:**
+```bash
+   mkdir -p ~/.local/share/wolfmans-backup-tool/icons
+   mkdir -p ~/.config/wolfmans-backup-tool
+```
+
+5. **Copy icons (optional but recommended):**
+```bash
+   cp -r icons/* ~/.local/share/wolfmans-backup-tool/icons/ 2>/dev/null || true
+```
+
+6. **Create desktop entry (optional):**
+```bash
+   mkdir -p ~/.local/share/applications
+   cat > ~/.local/share/applications/wolfmans-backup-tool.desktop << 'EOF'
 [Desktop Entry]
 Version=1.0
 Type=Application
 Name=Wolfmans Backup Tool
-Comment=Comprehensive backup and restore solution
-Exec=/path/to/wolfmans-backup-tool.pl
-Icon=drive-harddisk
+Comment=Comprehensive backup and restore solution for Linux
+Exec=$HOME/.local/bin/wolfmans-backup-tool
+Icon=$HOME/.local/share/wolfmans-backup-tool/icons/wolfmans-backup-tool.svg
 Terminal=false
 Categories=System;Utility;Archiving;
+Keywords=backup;restore;archive;incremental;wolfman;
+StartupNotify=true
 EOF
+   chmod +x ~/.local/share/applications/wolfmans-backup-tool.desktop
 ```
 
-Replace `/path/to/wolfmans-backup-tool.pl` with the actual path to the script.
+7. **Add to PATH:**
+```bash
+   echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+   source ~/.bashrc
+```
+
+8. **Update desktop database (for menu entry):**
+```bash
+   update-desktop-database ~/.local/share/applications 2>/dev/null || true
+```
+
+### Running the Application
+
+After installation, you can run the application in three ways:
+
+1. **From application menu:**
+   - Look for "Wolfmans Backup Tool" in System → Utilities
+
+2. **From command line:**
+```bash
+   wolfmans-backup-tool
+```
+
+3. **Full path (if not in PATH):**
+```bash
+   ~/.local/bin/wolfmans-backup-tool
+```
+
+### Uninstalling
+
+#### Automated Uninstall (Debian/Ubuntu/Mint)
+```bash
+cd wolfmans-backup-tool
+chmod +x uninstall.sh
+./uninstall.sh
+```
+
+The uninstaller will:
+- Remove application from `~/.local/bin/`
+- Remove desktop entry
+- Optionally remove icons and configuration (asks for confirmation)
+- Leave system packages and Perl modules installed
+
+#### Manual Uninstall (All Distributions)
+```bash
+# Remove application
+rm ~/.local/bin/wolfmans-backup-tool
+
+# Remove desktop entry
+rm ~/.local/share/applications/wolfmans-backup-tool.desktop
+
+# Remove icons and config (optional)
+rm -rf ~/.local/share/wolfmans-backup-tool
+rm -rf ~/.config/wolfmans-backup-tool
+```
+
+**Note:** System packages (perl, rsync, tar, etc.) and Perl modules are not removed during uninstallation as they may be used by other applications.
+
+### Installation Locations
+
+After installation, files will be located at:
+
+| Component | Location |
+|-----------|----------|
+| Application | `~/.local/bin/wolfmans-backup-tool` |
+| Icons | `~/.local/share/wolfmans-backup-tool/icons/` |
+| Configuration | `~/.config/wolfmans-backup-tool/settings.conf` |
+| Desktop Entry | `~/.local/share/applications/wolfmans-backup-tool.desktop` |
+| Backup Metadata | Inside each backup folder as `.backup_info.json` |
+
+### Verifying Installation
+
+Check if the application is correctly installed:
+```bash
+# Check if application exists and is executable
+ls -lh ~/.local/bin/wolfmans-backup-tool
+
+# Check if it's in PATH
+which wolfmans-backup-tool
+
+# Check desktop entry
+ls -l ~/.local/share/applications/wolfmans-backup-tool.desktop
+
+# Check icons directory
+ls ~/.local/share/wolfmans-backup-tool/icons/
+
+# Try running it
+wolfmans-backup-tool
+```
+
+### Troubleshooting Installation
+
+**"This script is designed for Debian-based systems"**
+- The automated installer only works on Debian/Ubuntu/Mint
+- Use the [manual installation method](#manual-installation-all-distributions) instead
+
+**"wolfmans-backup-tool: command not found"**
+- Add `~/.local/bin` to your PATH (see instructions above)
+- Or run with full path: `~/.local/bin/wolfmans-backup-tool`
+
+**"Cannot find wolfmans-backup-tool.pl"**
+- Make sure you're running `install.sh` from the repository directory
+- Check that `wolfmans-backup-tool.pl` exists: `ls wolfmans-backup-tool.pl`
+
+**"Gtk3 module not found" or "Can't locate Gtk3.pm"**
+- Install GTK3 Perl bindings:
+  - Debian/Ubuntu/Mint: `sudo apt-get install libgtk3-perl`
+  - Fedora/RHEL: `sudo dnf install perl-Gtk3`
+  - Arch: `sudo pacman -S perl-gtk3`
+- Or let the automated installer handle it (Debian-based systems only)
+
+**"JSON module not found" or "Can't locate JSON.pm"**
+- Install JSON Perl module:
+  - Debian/Ubuntu/Mint: `sudo apt-get install libjson-perl`
+  - Fedora/RHEL: `sudo dnf install perl-JSON`
+  - Arch: `sudo pacman -S perl-json`
+  - Or via CPAN: `sudo cpanm JSON`
+
+**"Permission denied" when running install.sh**
+- Make the installer executable: `chmod +x install.sh`
+- Don't run with sudo - the installer will prompt for password when needed
+
+**Desktop entry not appearing in menu**
+- Log out and log back in
+- Or run: `update-desktop-database ~/.local/share/applications`
+- Check if file exists: `cat ~/.local/share/applications/wolfmans-backup-tool.desktop`
+
+**"sudo authentication failed" during system backup**
+- System backups require administrator privileges
+- The application will prompt for your password when needed
+- Make sure you enter the correct password
+
+**Application crashes on startup**
+- Check for missing dependencies: `~/.local/bin/wolfmans-backup-tool` (will show error)
+- Verify GTK3 installation: `perl -MGtk3 -e 'print "OK\n"'`
+- Check error logs in terminal when running from command line
 
 ## Usage
 
@@ -223,7 +409,7 @@ Configuration is stored in: `~/.config/wolfmans-backup-tool/settings.conf`
 
 Default settings:
 ```
-window_width = "900"
+window_width = "1000"
 window_height = "700"
 border_width = "3"
 last_backup_location = ""
@@ -366,12 +552,15 @@ Debug log includes:
 
 ```
 wolfmans-backup-tool/
-├── wolfmans-backup-tool.pl          # Main application script
+├── wolfmans-backup-tool.pl       # Main application script
+├── install.sh                    # Instal script
+├── uninstall.sh                  # Uninstal script
 ├── README.md                     # This file
 ├── LICENSE                       # GPL-3.0 license
-└── icons/                        # Optional custom icons
+└── icons/                        # Custom icons
     ├── disc.svg                  # Progress display icon
     └── drive.png                 # Fallback drive icon
+    └── wolfmans-backup-tool.svg  # Application icon
 ```
 
 ## Contributing
