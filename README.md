@@ -614,6 +614,7 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 - Perl community
 - GTK community
 - rsync and tar community
+- creators of the disc and drive icons
 
 ## Support
 
