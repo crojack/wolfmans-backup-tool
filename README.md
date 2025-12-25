@@ -6,7 +6,8 @@ A simple backup/restore solution for Linux systems written in Perl with a GTK3 g
 ![Perl](https://img.shields.io/badge/perl-5.x-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
 
-<img width="2208" height="1576" alt="Screenshot From 2025-12-23 19-47-06" src="https://github.com/user-attachments/assets/39321a1d-6a13-4e05-9e86-5937f108bbb6" />
+<img width="3208" height="1999" alt="Screenshot From 2025-12-25 15-05-29" src="https://github.com/user-attachments/assets/03cae7a5-8904-46f0-9d45-7a8dc240416b" />
+
 
 <img width="2208" height="1576" alt="Screenshot From 2025-12-23 19-47-21" src="https://github.com/user-attachments/assets/45cdb8dd-e8b3-468d-a1aa-a2789f81a192" />
 
