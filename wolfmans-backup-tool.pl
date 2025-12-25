@@ -847,7 +847,7 @@ sub load_settings {
     
     # Default settings
     $self->{settings} = {
-        window_width => 900,
+        window_width => 1000,
         window_height => 700,
         border_width => 3,
         last_backup_location => '',
@@ -4536,7 +4536,6 @@ sub backup_system_with_tar {
 }
 
 
-
 # backup_with_rsync
 # Performs efficient file copying using rsync with progress monitoring.
 # Handles exclusions, sudo authentication, and relative path preservation.
@@ -4592,6 +4591,19 @@ sub backup_with_rsync {
         total_size_bytes => $total_bytes_expected,
         hidden_files_included => $include_hidden,
     };
+    
+    # CRITICAL FIX: Store source_paths for custom backups so incremental backups know what to scan
+    if ($backup_type eq 'custom' && ref($source) eq 'ARRAY') {
+        $metadata->{source_paths} = $source;
+        print "Storing source paths in metadata for custom backup: " . join(', ', @$source) . "\n";
+    } elsif ($backup_type eq 'home') {
+        $metadata->{source_paths} = [$ENV{HOME}];
+        $metadata->{original_home_path} = $ENV{HOME};
+    } elsif ($backup_type eq 'system') {
+        my @system_dirs = qw(/bin /boot /etc /lib /opt /root /sbin /usr /var);
+        $metadata->{source_paths} = \@system_dirs;
+    }
+    
     $self->write_metadata_file("$dest/.backup_info.json", $metadata);
 
     # --- 5. BUILD RSYNC COMMAND ---
@@ -5474,7 +5486,7 @@ sub init_ui {
     # Create main window with standard GTK decorations
     $self->{window} = Gtk3::Window->new('toplevel');
     $self->{window}->set_title('Wolfmans Backup Tool');
-    $self->{window}->set_default_size(900, 700);
+    $self->{window}->set_default_size(1000, 700);
     $self->{window}->set_position('center');
     $self->{window}->set_resizable(1);
     $self->{window}->set_decorated(1);
@@ -5495,7 +5507,7 @@ sub init_ui {
     });
     
     # Set minimum window size to allow shrinking
-    $self->{window}->set_size_request(900, 700);
+    $self->{window}->set_size_request(1000, 700);
     
     # Create main container
     my $main_vbox = Gtk3::Box->new('vertical', 0);
@@ -5529,7 +5541,7 @@ sub init_ui {
     }
     
     # Force the desired size after everything is shown and laid out
-    $self->{window}->resize(900, 700);
+    $self->{window}->resize(1000, 700);
     
     while (Gtk3::events_pending()) {
         Gtk3::main_iteration();
@@ -5682,6 +5694,20 @@ sub perform_incremental_custom_backup {
     my $source_paths = $metadata->{source_paths} || [];
     my $last_backup_time = $metadata->{created} || 0;
     
+    # CRITICAL FIX: If metadata has no source_paths (old backup format), reconstruct from backup structure
+    if (!@$source_paths || scalar(@$source_paths) == 0) {
+        print "WARNING: No source_paths in metadata - attempting to reconstruct from backup structure\n";
+        $source_paths = $self->reconstruct_source_paths_from_backup($backup_folder);
+        
+        if (!@$source_paths || scalar(@$source_paths) == 0) {
+            print "ERROR: Could not reconstruct source paths from backup\n";
+            $self->write_progress_file("ERROR: Could not determine what files were originally backed up. This may be an old backup format.");
+            return;
+        }
+        
+        print "Reconstructed " . scalar(@$source_paths) . " source paths from backup structure\n";
+    }
+    
     print "Checking " . scalar(@$source_paths) . " paths for changes since " . 
           POSIX::strftime("%Y-%m-%d %H:%M:%S", localtime($last_backup_time)) . "\n";
     
@@ -5690,16 +5716,20 @@ sub perform_incremental_custom_backup {
     my @new_files = ();
     
     foreach my $source_path (@$source_paths) {
+        print "Checking source path: $source_path\n";
+        
         if (-e $source_path) {
             if (-f $source_path) {
                 # Single file
                 my $mtime = (stat($source_path))[9];
                 if ($mtime > $last_backup_time) {
                     push @changed_files, $source_path;
+                    print "  File changed: $source_path\n";
                 }
             } elsif (-d $source_path) {
                 # Directory - recursively check
                 $self->find_changed_files_in_directory($source_path, $last_backup_time, \@changed_files, \@new_files);
+                print "  Directory scanned: $source_path (" . (scalar(@changed_files) + scalar(@new_files)) . " changes so far)\n";
             }
         } else {
             print "Warning: Source path no longer exists: $source_path\n";
@@ -5785,6 +5815,85 @@ sub perform_incremental_system_backup {
     
     # Perform the backup
     $self->backup_changed_files($backup_folder, \@changed_files, \@new_files, $metadata);
+}
+
+# reconstruct_source_paths_from_backup
+# Reconstructs the original source paths by examining backup directory structure.
+# Scans backup folder for directories and converts relative paths to absolute paths.
+# Returns array of source paths that were originally backed up.
+sub reconstruct_source_paths_from_backup {
+    my ($self, $backup_folder) = @_;
+    
+    my @reconstructed_paths = ();
+    
+    print "Reconstructing source paths from backup directory: $backup_folder\n";
+    
+    # For custom backups created with rsync -R, the structure preserves the full path
+    # For example: /backup/home/antialias/Videos means original was /home/antialias/Videos
+    
+    # Look for top-level directories in the backup
+    opendir(my $dh, $backup_folder) or do {
+        print "ERROR: Cannot open backup folder: $!\n";
+        return ();
+    };
+    
+    my @entries = grep { $_ ne '.' && $_ ne '..' && $_ !~ /^\.backup_info/ && $_ !~ /^incremental_/ } readdir($dh);
+    closedir($dh);
+    
+    foreach my $entry (@entries) {
+        my $full_path = "$backup_folder/$entry";
+        next unless -d $full_path;
+        
+        print "  Examining top-level entry: $entry\n";
+        
+        # If it's "home", scan for user directories
+        if ($entry eq 'home') {
+            opendir(my $home_dh, $full_path) or next;
+            my @users = grep { $_ ne '.' && $_ ne '..' && -d "$full_path/$_" } readdir($home_dh);
+            closedir($home_dh);
+            
+            foreach my $user (@users) {
+                my $user_path = "$full_path/$user";
+                
+                # Get all subdirectories under this user
+                opendir(my $user_dh, $user_path) or next;
+                my @user_dirs = grep { $_ ne '.' && $_ ne '..' && -d "$user_path/$_" } readdir($user_dh);
+                closedir($user_dh);
+                
+                foreach my $dir (@user_dirs) {
+                    my $reconstructed = "/home/$user/$dir";
+                    print "    Reconstructed path: $reconstructed\n";
+                    push @reconstructed_paths, $reconstructed;
+                }
+                
+                # Also check for files directly under user home
+                opendir($user_dh, $user_path);
+                my @user_files = grep { $_ ne '.' && $_ ne '..' && -f "$user_path/$_" } readdir($user_dh);
+                closedir($user_dh);
+                
+                foreach my $file (@user_files) {
+                    my $reconstructed = "/home/$user/$file";
+                    print "    Reconstructed file: $reconstructed\n";
+                    push @reconstructed_paths, $reconstructed;
+                }
+            }
+        }
+        # If it's a system directory, reconstruct as /$entry
+        elsif ($entry =~ /^(bin|boot|etc|lib|opt|root|sbin|usr|var)$/) {
+            my $reconstructed = "/$entry";
+            print "    Reconstructed system path: $reconstructed\n";
+            push @reconstructed_paths, $reconstructed;
+        }
+        # Otherwise, might be a relative path backup
+        else {
+            # Try to determine if this is a full path or relative
+            # For now, assume it's relative to current directory
+            print "    Unknown entry type: $entry (skipping)\n";
+        }
+    }
+    
+    print "Reconstructed " . scalar(@reconstructed_paths) . " source paths total\n";
+    return \@reconstructed_paths;
 }
 
 # perform_restore
@@ -6628,15 +6737,14 @@ sub verify_backup_structure {
 # verify_backup_type_compatibility
 # Ensures selected backup type matches original backup metadata.
 # Handles legacy 'directory' type backups with type inference.
-# Shows error dialog if types don't match for incremental operations.
+# Automatically sets backup type to match loaded backup for incremental operations.
 sub verify_backup_type_compatibility {
     my ($self, $backup_folder) = @_;
     
     my $metadata = $self->{incremental_metadata};
     my $original_type = $metadata->{backup_type} || '';
-    my $selected_type = $self->{selected_backup_type};
     
-    print "Checking compatibility: original='$original_type', selected='$selected_type'\n";
+    print "Loading incremental backup with type: '$original_type'\n";
     
     # Handle legacy backups with 'directory' type
     if ($original_type eq 'directory') {
@@ -6645,38 +6753,42 @@ sub verify_backup_type_compatibility {
         # Try to infer the actual backup type from metadata
         my $inferred_type = $self->infer_backup_type_from_metadata($metadata);
         
-        if ($inferred_type && $inferred_type eq $selected_type) {
-            print "Successfully inferred backup type as '$inferred_type' - matches selected type\n";
+        if ($inferred_type) {
+            print "Successfully inferred backup type as '$inferred_type'\n";
             # Update the metadata for consistency
             $metadata->{backup_type} = $inferred_type;
-            $self->analyze_backup_changes($backup_folder);
-            return;
-        } elsif ($inferred_type) {
-            print "Inferred backup type as '$inferred_type' but selected type is '$selected_type'\n";
+            $original_type = $inferred_type;
         } else {
             print "Could not infer backup type from legacy metadata\n";
+            # Show a more helpful error for legacy backups
+            $self->show_error_dialog('Legacy Backup Format',
+                "This appears to be a backup created with an older version of the tool.\n" .
+                "The backup type could not be determined automatically.\n\n" .
+                "Please try selecting a different backup type that matches your original backup:\n" .
+                "- If you backed up your home directory, use 'Backup home directory'\n" . 
+                "- If you backed up the system files, use 'Backup system files'\n" .
+                "- If you backed up specific files/folders, use 'Backup selected files and folders'");
+            return;
         }
-        
-        # Show a more helpful error for legacy backups
-        $self->show_error_dialog('Legacy Backup Format',
-            "This appears to be a backup created with an older version of the tool.\n" .
-            "The backup type could not be determined automatically.\n\n" .
-            "Please try selecting a different backup type that matches your original backup:\n" .
-            "- If you backed up your home directory, use 'Backup home directory'\n" . 
-            "- If you backed up the system files, use 'Backup system files'\n" .
-            "- If you backed up specific files/folders, use 'Backup selected files and folders'");
-        return;
     }
     
-    # Normal type checking for modern backups
-    if ($original_type ne $selected_type) {
-        $self->show_error_dialog('Backup Type Mismatch',
-            "The selected backup is of type '$original_type' but you selected '$selected_type' backup type.\n" .
-            "Please select a backup that matches your current backup type selection.");
-        return;
+    # CRITICAL FIX: For incremental backups, automatically set the backup type to match the loaded backup
+    # This is required because incremental backups MUST use the same type as the original backup
+    print "Setting selected_backup_type to match loaded backup: '$original_type'\n";
+    $self->{selected_backup_type} = $original_type;
+    
+    # Update the destination label to show the correct information
+    my $backup_name = (split '/', $backup_folder)[-1];
+    my $type_display = ucfirst($original_type);
+    
+    if ($self->{destination_label}) {
+        $self->{destination_label}->set_markup(
+            "<b>Incremental backup for:</b> $backup_name\n" .
+            "<i>Type: $type_display</i>"
+        );
     }
     
-    # Types match, proceed with analysis
+    # Proceed with analysis
     $self->analyze_backup_changes($backup_folder);
 }
 
