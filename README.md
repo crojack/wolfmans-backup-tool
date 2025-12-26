@@ -590,16 +590,13 @@ When reporting bugs, please include:
 ## Roadmap
 
 Planned features for future releases:
-- [ ] Cloud storage integration (S3, Google Drive, Dropbox)
 - [ ] Scheduled backups with cron integration
 - [ ] Email notifications for backup completion/failure
 - [ ] Backup rotation policies (keep last N backups)
-- [ ] Network backup support (SSH/SFTP destinations)
 - [ ] Backup comparison and diff viewer
 - [ ] Multi-threaded compression for faster backups
 - [ ] GUI improvements (dark mode, custom themes)
 - [ ] Backup verification through checksums
-- [ ] Smart backup suggestions based on usage patterns
 
 ## License
 
