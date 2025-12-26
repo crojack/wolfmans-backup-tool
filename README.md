@@ -413,7 +413,6 @@ Default settings:
 ```
 window_width = "1000"
 window_height = "700"
-border_width = "3"
 last_backup_location = ""
 ```
 
